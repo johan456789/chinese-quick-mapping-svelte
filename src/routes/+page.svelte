@@ -7,6 +7,7 @@
   import { modes, type Mode } from '$lib/types';
   import { chineseToParts, updateInputHistory } from '$lib/utils';
   import { quickMapping } from '$lib/mappingLoader';
+  import { cangjieToEnglish } from '$lib/keyMapping';
   import Modal from '$lib/Modal.svelte';
   import CharDecompositionGraph from '$lib/CharDecompositionGraph.svelte';
   import Message from '$lib/Message.svelte';
@@ -59,13 +60,23 @@
 
   // 速成/倉頡
   let mode: Mode = $state(modes.quick);
+  let keyMode: 'chinese' | 'english' = $state('chinese');
 
-  let charBoxItems = $derived(
-    userInputText.split('').map((char) => {
+  let charBoxItems: { ch: string; parts: string; displayParts: string }[] = $state([]);
+
+  $effect(() => {
+    charBoxItems = userInputText.split('').map((char) => {
       const { ch, parts } = chineseToParts(quickMapping, mode, char);
-      return { ch, parts };
-    })
-  );
+      const displayParts =
+        keyMode === 'english'
+          ? parts
+              .split('')
+              .map((part) => cangjieToEnglish[part] || part)
+              .join('')
+          : parts;
+      return { ch, parts, displayParts };
+    });
+  });
 
   let inputHistory: string[] = $state(
     browser ? JSON.parse(localStorage.getItem('inputHistory') || '[]') : []
@@ -162,6 +173,33 @@
               倉頡
             </button>
           </div>
+
+          <div class="w-px bg-slate-400 mx-2"></div>
+
+          <div class="flex-0 w-20 -mr-4">
+            <button
+              class={`text-center block border border-slate-300 py-1 px-4 shadow rounded-l ${
+                keyMode === 'chinese'
+                  ? 'text-white bg-slate-500 hover:bg-slate-700'
+                  : 'bg-white hover:bg-gray-200'
+              }`}
+              onclick={() => (keyMode = 'chinese')}
+            >
+              中鍵
+            </button>
+          </div>
+          <div class="flex-0 w-20 -mr-3">
+            <button
+              class={`text-center block border border-slate-300 py-1 px-4 shadow rounded-r ${
+                keyMode === 'english'
+                  ? 'text-white bg-slate-500 hover:bg-slate-700'
+                  : 'bg-white hover:bg-gray-200'
+              }`}
+              onclick={() => (keyMode = 'english')}
+            >
+              英鍵
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -181,7 +219,7 @@
           class="flex-1 px-2 pt-3 pb-1 border-l border-r border-b sm:border-0 rounded-b sm:rounded-t sm:ml-4 flex content-start flex-wrap bg-white shadow-md relative"
           data-testid="char-box-container"
         >
-          {#each charBoxItems as { ch, parts }, i (i)}
+          {#each charBoxItems as { ch, displayParts }, i (i)}
             {@const clickable = charsWithImagesSet.has(ch)}
             <button
               class={`flex flex-col items-center mx-1 mb-2 px-2.5 py-1.5 ${
@@ -194,7 +232,7 @@
               onclick={() => clickable && openCharModal(ch)}
             >
               <div class="flex flex-row text-2xl leading-8">{ch}</div>
-              <div class="flex flex-row text-xs text-gray-500">{parts}</div>
+              <div class="flex flex-row text-xs text-gray-500">{displayParts}</div>
             </button>
           {/each}
         </div>
